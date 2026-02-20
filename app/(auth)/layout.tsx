@@ -2,10 +2,10 @@ import Logo from "@/components/brand/Logo";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="page" style={{ justifyContent: "center" }}>
-      <main className="page-content" style={{ maxWidth: 520 }}>
-        <div className="card" style={{ textAlign: "center" }}>
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+    <div className="page auth-page">
+      <main className="page-content auth-content">
+        <div className="card auth-card">
+          <div className="auth-brand">
             <Logo href="/login" />
           </div>
           <div className="card-title" style={{ fontSize: 22, marginBottom: 6 }}>
