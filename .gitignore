@@ -1,0 +1,12 @@
+node_modules
+.next
+out
+.env
+.env.local
+.env.*.local
+output
+
+# Supabase
+supabase/.branches
+supabase/.temp
+supabase/.env
