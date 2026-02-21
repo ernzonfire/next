@@ -54,13 +54,25 @@ export default function ClaimForm() {
         }),
       });
 
-      const claimPayload = (await claimResponse.json()) as {
+      const responseText = await claimResponse.text();
+      let claimPayload: {
         error?: string;
         email?: string;
-      };
+      } = {};
+
+      if (responseText.trim()) {
+        try {
+          claimPayload = JSON.parse(responseText) as {
+            error?: string;
+            email?: string;
+          };
+        } catch (_error) {
+          claimPayload = { error: responseText };
+        }
+      }
 
       if (!claimResponse.ok) {
-        setError(claimPayload.error ?? "Unable to claim account.");
+        setError(claimPayload.error ?? `Unable to claim account (HTTP ${claimResponse.status}).`);
         return;
       }
 
