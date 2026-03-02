@@ -17,7 +17,9 @@ export const metadata: Metadata = {
   description: "Company hub for events, announcements, engagement, and rewards.",
   themeColor: "#002E6D",
   icons: {
-    icon: "/next.svg",
+    icon: "/nextapp.svg",
+    shortcut: "/nextapp.svg",
+    apple: "/nextapp.svg",
   },
 };
 
