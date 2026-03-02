@@ -26,6 +26,14 @@ const generateCode = () => {
   return code;
 };
 
+const normalizeEventCode = (value: string | null | undefined) =>
+  (value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "");
+
+const isValidEventCode = (value: string) => /^[A-Z0-9_-]{4,24}$/.test(value);
+
 const resolveRole = async (userId: string, jwtRole?: string | null) => {
   if (jwtRole === "admin") {
     return jwtRole;
@@ -73,6 +81,7 @@ serve(async (req) => {
     event_date?: string;
     points?: number;
     image_url?: string | null;
+    event_code?: string | null;
   };
 
   try {
@@ -86,6 +95,7 @@ serve(async (req) => {
   const eventDate = (body.event_date ?? "").trim();
   const points = Number(body.points ?? 0);
   const imageUrl = body.image_url?.trim() || null;
+  const customEventCode = normalizeEventCode(body.event_code);
 
   if (!title) {
     return json(400, { error: "title is required" }, origin);
@@ -99,11 +109,23 @@ serve(async (req) => {
     return json(400, { error: "points must be at least 1" }, origin);
   }
 
+  if (customEventCode && !isValidEventCode(customEventCode)) {
+    return json(
+      400,
+      {
+        error:
+          "event_code must be 4-24 characters and can only contain A-Z, 0-9, dash (-), or underscore (_).",
+      },
+      origin
+    );
+  }
+
   let insertedId: string | null = null;
   let eventCode: string | null = null;
+  const maxAttempts = customEventCode ? 1 : 5;
 
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    eventCode = generateCode();
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    eventCode = customEventCode || generateCode();
     const payload: Record<string, unknown> = {
       title,
       description,
@@ -153,6 +175,10 @@ serve(async (req) => {
 
     if (insertError && insertError.code !== "23505") {
       return json(400, { error: insertError.message }, origin);
+    }
+
+    if (insertError && insertError.code === "23505" && customEventCode) {
+      return json(409, { error: "event_code already exists. Choose another code." }, origin);
     }
   }
 

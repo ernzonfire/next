@@ -26,11 +26,21 @@ export default function AdminEventsPage() {
   const [description, setDescription] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [points, setPoints] = useState(10);
+  const [eventCode, setEventCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingCodeId, setEditingCodeId] = useState<string | null>(null);
+
+  const normalizeEventCode = (value: string) =>
+    value
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, "");
+
+  const isValidEventCode = (value: string) => /^[A-Z0-9_-]{4,24}$/.test(value);
 
   useEffect(() => {
     load();
@@ -116,6 +126,40 @@ export default function AdminEventsPage() {
     await load();
   };
 
+  const handleEditCode = async (event: EventRow) => {
+    const input = window.prompt(
+      "Set redeem code (4-24 chars, A-Z, 0-9, dash, underscore):",
+      event.event_code
+    );
+
+    if (input === null) {
+      return;
+    }
+
+    const nextCode = normalizeEventCode(input);
+    if (!isValidEventCode(nextCode)) {
+      setError("Invalid code format. Use 4-24 chars: A-Z, 0-9, - or _.");
+      return;
+    }
+
+    setEditingCodeId(event.id);
+    setError(null);
+
+    const { error: updateError } = await supabase
+      .from("events")
+      .update({ event_code: nextCode })
+      .eq("id", event.id);
+
+    if (updateError) {
+      setError(updateError.message);
+      setEditingCodeId(null);
+      return;
+    }
+
+    setEditingCodeId(null);
+    await load();
+  };
+
   const uploadImage = async (file: File) => {
     const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
     const path = `events/${Date.now()}-${crypto.randomUUID()}.${ext}`;
@@ -155,6 +199,12 @@ export default function AdminEventsPage() {
       return;
     }
 
+    const normalizedCode = normalizeEventCode(eventCode);
+    if (normalizedCode && !isValidEventCode(normalizedCode)) {
+      setError("Invalid redeem code. Use 4-24 chars: A-Z, 0-9, - or _.");
+      return;
+    }
+
     setSubmitting(true);
 
     const isoDate = new Date(eventDate).toISOString();
@@ -173,6 +223,9 @@ export default function AdminEventsPage() {
       if (supportsEventImages && imageUrl) {
         payload.image_url = imageUrl;
       }
+      if (normalizedCode) {
+        payload.event_code = normalizedCode;
+      }
 
       await invokeEdge<{ event_id: string }>("create-event", payload);
     } catch (invokeError) {
@@ -188,6 +241,7 @@ export default function AdminEventsPage() {
     setDescription("");
     setEventDate("");
     setPoints(10);
+    setEventCode("");
     setImageFile(null);
     setImagePreview(null);
     setShowForm(false);
@@ -250,6 +304,18 @@ export default function AdminEventsPage() {
                 value={points}
                 onChange={(event) => setPoints(Number(event.target.value))}
               />
+            </label>
+            <label className="form">
+              <span>Redeem Code (optional)</span>
+              <input
+                className="input"
+                value={eventCode}
+                onChange={(event) => setEventCode(event.target.value.toUpperCase())}
+                placeholder="Example: REIGNITES2"
+              />
+              <div className="card-muted">
+                Leave blank to auto-generate. You can edit this later.
+              </div>
             </label>
             {supportsEventImages ? (
               <label className="form">
@@ -348,6 +414,14 @@ export default function AdminEventsPage() {
                   onClick={() => navigator.clipboard.writeText(event.event_code)}
                 >
                   Copy Code
+                </button>
+                <button
+                  className="btn btn-outline"
+                  type="button"
+                  onClick={() => handleEditCode(event)}
+                  disabled={editingCodeId === event.id}
+                >
+                  {editingCodeId === event.id ? "Saving..." : "Edit Code"}
                 </button>
                 <button
                   className="btn btn-primary"
