@@ -45,7 +45,7 @@ export default function RequireAuth({
     }
 
     if (requireAdmin && role !== "admin") {
-      router.replace("/dashboard");
+      router.replace("/");
     }
   }, [loading, user, profile, role, requireAdmin, requireClaimed, pathname, router]);
 

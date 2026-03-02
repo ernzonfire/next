@@ -8,6 +8,7 @@ export type Profile = {
   id: string;
   auth_user_id: string | null;
   full_name: string;
+  preferred_name: string | null;
   department: string | null;
   employee_id: string | null;
   first_name: string | null;
@@ -48,7 +49,7 @@ export function useCurrentUser(): CurrentUserState {
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "id, auth_user_id, full_name, department, employee_id, first_name, last_name, job_title, campaign, site, work_arrangement, dob_text, role, points_balance, claimed, claimed_at, disabled_at"
+        "id, auth_user_id, full_name, preferred_name, department, employee_id, first_name, last_name, job_title, campaign, site, work_arrangement, dob_text, role, points_balance, claimed, claimed_at, disabled_at"
       )
       .or(`id.eq.${userId},auth_user_id.eq.${userId}`)
       .limit(1)

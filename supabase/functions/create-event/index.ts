@@ -42,7 +42,8 @@ const resolveRole = async (userId: string, jwtRole?: string | null) => {
   const { data } = await supabaseAdmin
     .from("profiles")
     .select("role")
-    .eq("id", userId)
+    .or(`id.eq.${userId},auth_user_id.eq.${userId}`)
+    .limit(1)
     .maybeSingle();
 
   return data?.role ?? null;

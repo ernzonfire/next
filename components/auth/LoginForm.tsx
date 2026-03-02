@@ -72,7 +72,7 @@ export default function LoginForm() {
       const claimPath = nextPath ? `/claim?next=${encodeURIComponent(nextPath)}` : "/claim";
       router.push(claimPath);
     } else {
-      router.push(nextPath ?? "/dashboard");
+      router.push(nextPath ?? "/");
     }
 
     setLoading(false);

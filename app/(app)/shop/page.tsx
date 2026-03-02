@@ -1,110 +1,159 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase/client";
-import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
+import { useMemo, useState } from "react";
+import { shopFilters, shopItems, type MockShopItem } from "@/app/components/mockData";
 
-type Reward = {
-  id: string;
-  title: string;
-  description: string | null;
-  points_cost: number;
-  stock: number;
-  is_active: boolean;
-};
+type FilterType = (typeof shopFilters)[number];
+
+function pushToast(message: string, tone: "success" | "error" | "info" = "info") {
+  window.dispatchEvent(new CustomEvent("next-toast", { detail: { message, tone } }));
+}
 
 export default function ShopPage() {
-  const { profile, refreshProfile } = useCurrentUser();
-  const [rewards, setRewards] = useState<Reward[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [redeeming, setRedeeming] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeFilter, setActiveFilter] = useState<FilterType>("All");
+  const [selected, setSelected] = useState<MockShopItem | null>(null);
 
-  const load = async () => {
-    setLoading(true);
-    const { data, error: loadError } = await supabase
-      .from("rewards")
-      .select("id, title, description, points_cost, stock, is_active")
-      .eq("is_active", true)
-      .order("points_cost", { ascending: true });
+  const filteredItems = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
 
-    if (loadError) {
-      setError(loadError.message);
-    }
+    return shopItems.filter((item) => {
+      const matchesFilter = activeFilter === "All" || item.category === activeFilter;
+      const matchesSearch =
+        !normalizedSearch ||
+        item.name.toLowerCase().includes(normalizedSearch) ||
+        item.details.toLowerCase().includes(normalizedSearch);
 
-    setRewards(data ?? []);
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    load();
-  }, []);
-
-  const handleRedeem = async (reward: Reward) => {
-    setError(null);
-    setRedeeming(reward.id);
-
-    const { error: redeemError } = await supabase.functions.invoke("redeem-reward", {
-      body: {
-        reward_id: reward.id,
-        quantity: 1,
-      },
+      return matchesFilter && matchesSearch;
     });
-
-    if (redeemError) {
-      setError(redeemError.message);
-      setRedeeming(null);
-      return;
-    }
-
-    await refreshProfile();
-    await load();
-    setRedeeming(null);
-  };
+  }, [activeFilter, searchTerm]);
 
   return (
     <div>
-      <div className="page-header">
+      <header className="page-header">
         <div>
-          <h1>Rewards Shop</h1>
-          <p className="card-muted">Redeem points for company perks.</p>
+          <h1>Shop</h1>
+          <p className="card-muted">Redeem rewards and perks with your points.</p>
         </div>
-        <div className="chip">Balance: {profile?.points_balance ?? 0} pts</div>
-      </div>
+      </header>
 
-      {error ? <div className="card-muted">{error}</div> : null}
+      <section className="card" style={{ marginTop: 14 }}>
+        <label className="form" htmlFor="shop-search">
+          <span>Search rewards</span>
+          <input
+            id="shop-search"
+            className="input"
+            placeholder="Search by reward name"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+          />
+        </label>
 
-      <div className="grid grid-3">
-        {loading ? (
-          <div className="card-muted">Loading rewards...</div>
-        ) : rewards.length === 0 ? (
-          <div className="card-muted">No rewards available.</div>
-        ) : (
-          rewards.map((reward) => {
-            const canRedeem = (profile?.points_balance ?? 0) >= reward.points_cost;
+        <div style={{ marginTop: 12, display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
+          {shopFilters.map((filter) => {
+            const active = activeFilter === filter;
             return (
-              <div className="card" key={reward.id}>
-                <div className="card-title">{reward.title}</div>
-                {reward.description ? (
-                  <div className="card-muted">{reward.description}</div>
-                ) : null}
-                <div className="card-muted">Stock: {reward.stock}</div>
-                <div style={{ marginTop: 12 }}>
-                  <span className="chip">{reward.points_cost} pts</span>
-                </div>
-                <button
-                  className="btn btn-primary"
-                  style={{ marginTop: 12 }}
-                  onClick={() => handleRedeem(reward)}
-                  disabled={!canRedeem || reward.stock <= 0 || redeeming === reward.id}
-                >
-                  {redeeming === reward.id ? "Redeeming..." : "Redeem"}
-                </button>
-              </div>
+              <button
+                key={filter}
+                type="button"
+                className={active ? "btn btn-primary" : "btn btn-outline"}
+                onClick={() => setActiveFilter(filter)}
+                style={{ whiteSpace: "nowrap", minHeight: 36 }}
+              >
+                {filter}
+              </button>
             );
-          })
-        )}
-      </div>
+          })}
+        </div>
+      </section>
+
+      <section
+        className="grid"
+        style={{
+          marginTop: 16,
+          gridTemplateColumns: "repeat(auto-fill, minmax(155px, 1fr))",
+          gap: 12,
+        }}
+      >
+        {filteredItems.map((item) => (
+          <article className="card" key={item.id}>
+            <div className="chip" style={{ marginBottom: 8 }}>
+              {item.highlight}
+            </div>
+            <h2 className="card-title" style={{ fontSize: 18 }}>
+              {item.name}
+            </h2>
+            <p className="card-muted" style={{ marginTop: 4 }}>
+              {item.category}
+            </p>
+            <div style={{ marginTop: 10, fontWeight: 700, color: "var(--brand-navy)" }}>{item.points} pts</div>
+            <p className="card-muted" style={{ marginTop: 6 }}>
+              Stock: {item.stock}
+            </p>
+            <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+              <button type="button" className="btn btn-outline" onClick={() => setSelected(item)}>
+                View
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => pushToast(`${item.name} redeemed successfully.`, "success")}
+              >
+                Redeem
+              </button>
+            </div>
+          </article>
+        ))}
+      </section>
+
+      {selected ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${selected.name} details`}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 46,
+            background: "rgba(8, 16, 32, 0.52)",
+            display: "grid",
+            placeItems: "center",
+            padding: 16,
+          }}
+          onClick={() => setSelected(null)}
+        >
+          <article className="card" style={{ width: "min(520px, 100%)" }} onClick={(event) => event.stopPropagation()}>
+            <div className="page-header">
+              <div>
+                <h2>{selected.name}</h2>
+                <p className="card-muted">{selected.category}</p>
+              </div>
+              <button type="button" className="btn btn-outline" onClick={() => setSelected(null)}>
+                Close
+              </button>
+            </div>
+
+            <p style={{ marginTop: 14 }}>{selected.details}</p>
+
+            <div style={{ marginTop: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span className="chip">{selected.stock} left</span>
+              <strong style={{ color: "var(--brand-navy)" }}>{selected.points} pts</strong>
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ marginTop: 16 }}
+              onClick={() => {
+                pushToast(`${selected.name} redeemed successfully.`, "success");
+                setSelected(null);
+              }}
+            >
+              Confirm Redeem
+            </button>
+          </article>
+        </div>
+      ) : null}
     </div>
   );
 }

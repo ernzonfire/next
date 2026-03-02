@@ -334,12 +334,23 @@ img {
 
 .admin-layout {
   display: grid;
-  grid-template-columns: 250px minmax(0, 1fr);
+  grid-template-columns: 260px minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    "topbar topbar"
+    "sidebar content";
+  transition: grid-template-columns 0.2s ease;
+  background: var(--bg);
+}
+
+.admin-layout.admin-collapsed {
+  grid-template-columns: 92px minmax(0, 1fr);
   min-height: 100vh;
 }
 
 .admin-topbar {
-  display: none;
+  grid-area: topbar;
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -348,18 +359,35 @@ img {
   top: 0;
   z-index: 40;
   background: var(--bg);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--border);
   backdrop-filter: blur(12px);
 }
 
 .admin-sidebar {
+  grid-area: sidebar;
   background: #0f1f3d;
   color: #f2f5fb;
   padding: 24px 18px;
   position: sticky;
-  top: 0;
-  height: 100vh;
+  top: 69px;
+  height: calc(100vh - 69px);
   overflow-y: auto;
+  transition: padding 0.2s ease, width 0.2s ease;
+}
+
+.admin-sidebar .logo {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  width: 54px;
+  height: 54px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-layout.admin-collapsed .admin-sidebar {
+  padding: 22px 10px;
 }
 
 .admin-sidebar-header {
@@ -367,6 +395,10 @@ img {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.admin-layout.admin-collapsed .admin-sidebar-header {
+  justify-content: center;
 }
 
 .admin-menu {
@@ -389,17 +421,43 @@ img {
   margin-bottom: 24px;
 }
 
+.admin-layout.admin-collapsed .admin-sidebar h3 {
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-align: center;
+  margin-bottom: 12px;
+}
+
 .admin-nav {
   display: grid;
   gap: 10px;
 }
 
 .admin-nav a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 10px 12px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.08);
   color: #f2f5fb;
   font-size: 14px;
+}
+
+.admin-nav a .label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-nav.compact a {
+  justify-content: center;
+  padding: 10px 8px;
+}
+
+.admin-nav.compact a .label {
+  display: none;
 }
 
 .admin-nav a.active {
@@ -409,6 +467,7 @@ img {
 }
 
 .admin-content {
+  grid-area: content;
   padding: clamp(18px, 2.5vw, 28px);
   background: var(--bg);
   max-width: 1240px;
@@ -450,23 +509,15 @@ img {
   .select {
     font-size: 14px;
   }
-
-  .bottom-nav {
-    display: none;
-  }
-
-  .floating-chat {
-    bottom: 32px;
-  }
 }
 
 @media (max-width: 899px) {
-  .admin-layout {
+  .admin-layout,
+  .admin-layout.admin-collapsed {
     grid-template-columns: 1fr;
-  }
-
-  .admin-topbar {
-    display: flex;
+    grid-template-areas:
+      "topbar"
+      "content";
   }
 
   .admin-content {
@@ -482,6 +533,33 @@ img {
     transform: translateX(-100%);
     transition: transform 0.2s ease;
     z-index: 60;
+    padding: 24px 18px;
+    height: 100vh;
+  }
+
+  .admin-layout.admin-collapsed .admin-sidebar {
+    padding: 24px 18px;
+  }
+
+  .admin-layout.admin-collapsed .admin-sidebar-header {
+    justify-content: space-between;
+  }
+
+  .admin-layout.admin-collapsed .admin-sidebar h3 {
+    text-transform: none;
+    font-size: 28px;
+    letter-spacing: normal;
+    text-align: left;
+    margin-bottom: 24px;
+  }
+
+  .admin-layout.admin-collapsed .admin-nav.compact a {
+    justify-content: flex-start;
+    padding: 10px 12px;
+  }
+
+  .admin-layout.admin-collapsed .admin-nav.compact a .label {
+    display: inline;
   }
 
   .admin-sidebar.open {

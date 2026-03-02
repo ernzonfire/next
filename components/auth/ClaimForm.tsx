@@ -92,7 +92,7 @@ export default function ClaimForm() {
       }
 
       const nextPath = searchParams.get("next");
-      router.push(nextPath ?? "/dashboard");
+      router.push(nextPath ?? "/");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to claim account.";
       setError(message);

@@ -23,7 +23,12 @@ const withTimeout = async <T>(promise: Promise<T>, ms: number, label: string): P
 const getAccessToken = async () => {
   try {
     const sessionResponse = await withTimeout(supabase.auth.getSession(), 5000, "Session check");
-    if (sessionResponse.data.session?.access_token) {
+    const session = sessionResponse.data.session;
+    const now = Math.floor(Date.now() / 1000);
+    const expiresAt = session?.expires_at ?? 0;
+    const shouldRefresh = !session?.access_token || (expiresAt > 0 && expiresAt - now < 60);
+
+    if (session?.access_token && !shouldRefresh) {
       return sessionResponse.data.session.access_token;
     }
   } catch (_err) {
@@ -52,35 +57,45 @@ export const invokeEdge = async <T>(
   body: Record<string, unknown>,
   { timeoutMs = 15000 }: { timeoutMs?: number } = {}
 ): Promise<T> => {
-  const accessToken = await getAccessToken();
+  const runRequest = async (accessToken: string) => {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
 
-  if (!accessToken) {
+    try {
+      return await fetch(`${supabaseUrl}/functions/v1/${name}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        throw new Error("Request timed out. Please try again.");
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  };
+
+  const firstToken = await getAccessToken();
+  if (!firstToken) {
     throw new Error("Your session expired. Please log in again.");
   }
 
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+  let response = await runRequest(firstToken);
 
-  let response: Response;
-  try {
-    response = await fetch(`${supabaseUrl}/functions/v1/${name}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: supabaseAnonKey,
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-  } catch (error) {
-    clearTimeout(timeoutId);
-    if (error instanceof DOMException && error.name === "AbortError") {
-      throw new Error("Request timed out. Please try again.");
+  // If token is stale (e.g., keys rotated), refresh once and retry before forcing logout.
+  if (response.status === 401) {
+    const refreshed = await withTimeout(supabase.auth.refreshSession(), 5000, "Session refresh");
+    const retryToken = refreshed.data.session?.access_token ?? null;
+    if (retryToken) {
+      response = await runRequest(retryToken);
     }
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
   }
 
   const text = await response.text();

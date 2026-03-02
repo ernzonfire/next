@@ -50,6 +50,27 @@ export default function AdminEventsPage() {
     setLoading(true);
     setError(null);
 
+    if (!supportsEventImages) {
+      const withoutImage = await supabase
+        .from("events")
+        .select("id, title, description, event_date, points, event_code")
+        .order("event_date", { ascending: true });
+
+      if (withoutImage.error) {
+        setError(withoutImage.error.message);
+        setEvents([]);
+      } else {
+        setSupportsEventImages(false);
+        const normalized = ((withoutImage.data ?? []) as Omit<EventRow, "image_url">[]).map(
+          (row) => ({ ...row, image_url: null })
+        );
+        setEvents(normalized);
+      }
+
+      setLoading(false);
+      return;
+    }
+
     const withImage = await supabase
       .from("events")
       .select("id, title, description, event_date, points, event_code, image_url")

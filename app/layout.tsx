@@ -1,5 +1,5 @@
 import "./globals.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Sora, Work_Sans } from "next/font/google";
 
 const sora = Sora({
@@ -15,12 +15,15 @@ const workSans = Work_Sans({
 export const metadata: Metadata = {
   title: "NEXT",
   description: "Company hub for events, announcements, engagement, and rewards.",
-  themeColor: "#002E6D",
   icons: {
     icon: "/nextapp.svg",
     shortcut: "/nextapp.svg",
     apple: "/nextapp.svg",
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#002E6D",
 };
 
 export default function RootLayout({
