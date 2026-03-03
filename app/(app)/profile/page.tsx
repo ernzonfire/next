@@ -21,7 +21,7 @@ export default function ProfilePage() {
   const employeeId = profile?.employeeId?.trim() || profile?.employee_id?.trim() || "Not set";
   const vertical = profile?.vertical?.trim() || profile?.department?.trim() || "Not set";
   const campaign = profile?.campaignName?.trim() || profile?.campaign?.trim() || "Not set";
-  const role = profile?.role?.trim() || "Not set";
+  const position = profile?.job_title?.trim() || "Not set";
   const pointsBalance = profile?.pointsBalance ?? profile?.points_balance ?? 0;
 
   useEffect(() => {
@@ -71,7 +71,7 @@ export default function ProfilePage() {
         <p className="card-muted">Employee ID: {employeeId}</p>
         <p className="card-muted">Vertical: {vertical}</p>
         <p className="card-muted">Campaign: {campaign}</p>
-        <p className="card-muted">Role: {role}</p>
+        <p className="card-muted">Position: {position}</p>
 
         <div className="stat" style={{ marginTop: 14 }}>
           <span className="stat-label">Points Balance</span>

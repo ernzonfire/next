@@ -10,7 +10,7 @@ type UserRow = {
   full_name: string;
   department: string | null;
   employee_id: string | null;
-  role: string;
+  job_title: string | null;
   claimed: boolean;
 };
 
@@ -25,7 +25,7 @@ export default function AdminUsersPage() {
 
     const { data, error: loadError } = await supabase
       .from("profiles")
-      .select("id, full_name, department, employee_id, role, claimed")
+      .select("id, full_name, department, employee_id, job_title, claimed")
       .order("full_name", { ascending: true });
 
     if (loadError) {
@@ -88,7 +88,7 @@ export default function AdminUsersPage() {
               <div>{user.full_name || "Unnamed"}</div>
               <div>{user.employee_id ?? "-"}</div>
               <div>{user.department ?? "-"}</div>
-              <div>{user.role}</div>
+              <div>{user.job_title?.trim() || "Not set"}</div>
               <div>{user.claimed ? "Yes" : "No"}</div>
             </div>
           ))
