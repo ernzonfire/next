@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import LoadingState from "@/components/ui/LoadingState";
@@ -19,6 +20,11 @@ export default function RequireAuth({
   const pathname = usePathname();
   const { user, profile, role, loading, refreshProfile } = useCurrentUser();
   const attemptedProfileRefreshRef = useRef(false);
+  const isAdminUser =
+    role === "admin" ||
+    profile?.role === "admin" ||
+    user?.app_metadata?.role === "admin" ||
+    user?.user_metadata?.role === "admin";
 
   useEffect(() => {
     if (loading) return;
@@ -52,14 +58,13 @@ export default function RequireAuth({
       return;
     }
 
-    if (requireAdmin && role !== "admin") {
-      router.replace("/");
-    }
+    if (requireAdmin && !isAdminUser) return;
   }, [
     loading,
     user,
     profile,
     role,
+    isAdminUser,
     refreshProfile,
     requireAdmin,
     requireClaimed,
@@ -87,8 +92,22 @@ export default function RequireAuth({
     return <LoadingState message="Redirecting to claim..." />;
   }
 
-  if (requireAdmin && role !== "admin") {
-    return <LoadingState message="Redirecting..." />;
+  if (requireAdmin && !isAdminUser) {
+    return (
+      <div className="page">
+        <main className="page-content">
+          <section className="card" style={{ maxWidth: 520, margin: "60px auto 0" }}>
+            <h2 style={{ marginBottom: 8 }}>Admin access required</h2>
+            <p className="card-muted">Your account does not have admin privileges for this section.</p>
+            <div style={{ marginTop: 16 }}>
+              <Link href="/" className="btn btn-primary">
+                Back to user mode
+              </Link>
+            </div>
+          </section>
+        </main>
+      </div>
+    );
   }
 
   return <>{children}</>;

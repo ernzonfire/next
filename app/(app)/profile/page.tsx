@@ -7,21 +7,22 @@ import { supabase } from "@/lib/supabase/client";
 import AppFooter from "@/app/components/AppFooter";
 
 export default function ProfilePage() {
-  const { user, profile, refreshProfile } = useCurrentUser();
+  const { profile, refreshProfile } = useCurrentUser();
   const [preferredName, setPreferredName] = useState("");
   const [savingPreferredName, setSavingPreferredName] = useState(false);
   const [preferredNameMessage, setPreferredNameMessage] = useState<string | null>(null);
 
   const fullName =
+    profile?.fullName?.trim() ||
     profile?.full_name?.trim() ||
     [profile?.first_name?.trim(), profile?.last_name?.trim()].filter(Boolean).join(" ") ||
     "Team Member";
 
-  const greetingName =
-    profile?.preferred_name?.trim() ||
-    profile?.first_name?.trim() ||
-    profile?.full_name?.trim() ||
-    "Team Member";
+  const employeeId = profile?.employeeId?.trim() || profile?.employee_id?.trim() || "Not set";
+  const vertical = profile?.vertical?.trim() || profile?.department?.trim() || "Not set";
+  const campaign = profile?.campaignName?.trim() || profile?.campaign?.trim() || "Not set";
+  const role = profile?.role?.trim() || "Not set";
+  const pointsBalance = profile?.pointsBalance ?? profile?.points_balance ?? 0;
 
   useEffect(() => {
     setPreferredName(profile?.preferred_name ?? "");
@@ -67,19 +68,15 @@ export default function ProfilePage() {
         <div className="card-title" style={{ fontSize: 24 }}>
           {fullName}
         </div>
-        <p className="card-muted">Greeting display name: {greetingName}</p>
-        <p className="card-muted">Employee ID: {profile?.employee_id ?? "Not assigned"}</p>
-        <p className="card-muted">Department: {profile?.department ?? "Not set"}</p>
-        <p className="card-muted">Role: {profile?.role ?? "employee"}</p>
+        <p className="card-muted">Employee ID: {employeeId}</p>
+        <p className="card-muted">Vertical: {vertical}</p>
+        <p className="card-muted">Campaign: {campaign}</p>
+        <p className="card-muted">Role: {role}</p>
 
         <div className="stat" style={{ marginTop: 14 }}>
           <span className="stat-label">Points Balance</span>
-          <span className="stat-value">{profile?.points_balance ?? 0}</span>
+          <span className="stat-value">{pointsBalance}</span>
         </div>
-
-        <p className="card-muted" style={{ marginTop: 12 }}>
-          {user?.email ?? "No email available"}
-        </p>
       </section>
 
       <section className="card" style={{ marginTop: 18 }}>
@@ -124,10 +121,6 @@ export default function ProfilePage() {
           <div className="list-item">
             <span>Language</span>
             <span className="card-muted">English</span>
-          </div>
-          <div className="list-item">
-            <span>Support Email</span>
-            <span className="card-muted">help@next.com</span>
           </div>
         </div>
       </section>

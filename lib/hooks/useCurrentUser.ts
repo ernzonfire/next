@@ -23,7 +23,17 @@ export type Profile = {
   claimed: boolean;
   claimed_at: string | null;
   disabled_at: string | null;
+  fullName: string;
+  employeeId: string | null;
+  vertical: string | null;
+  campaignName: string | null;
+  pointsBalance: number;
 };
+
+type DbProfile = Omit<
+  Profile,
+  "fullName" | "employeeId" | "vertical" | "campaignName" | "pointsBalance"
+>;
 
 type CurrentUserState = {
   session: Session | null;
@@ -75,7 +85,7 @@ export function useCurrentUser(): CurrentUserState {
         Promise.resolve(query),
         10000
       )) as {
-        data: Profile | null;
+        data: DbProfile | null;
         error: { message: string } | null;
       };
 
@@ -87,7 +97,19 @@ export function useCurrentUser(): CurrentUserState {
         return;
       }
 
-      setProfile(data);
+      if (!data) {
+        setProfile(null);
+        return;
+      }
+
+      setProfile({
+        ...data,
+        fullName: data.full_name ?? "",
+        employeeId: data.employee_id ?? null,
+        vertical: data.department ?? null,
+        campaignName: data.campaign ?? null,
+        pointsBalance: Number(data.points_balance ?? 0),
+      });
     } catch (error) {
       console.error("Failed to load profile", error);
       setProfile(null);

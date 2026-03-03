@@ -2,14 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Bell, MessageCircle, RefreshCcw } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Bell, Menu, MessageCircle } from "lucide-react";
 import RequireAuth from "@/components/auth/RequireAuth";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import BottomTabs from "@/app/components/BottomTabs";
 import ScannerOverlay from "@/app/components/ScannerOverlay";
 import SupportPanel from "@/app/components/SupportPanel";
 import AppToast from "@/app/components/AppToast";
+import DesktopNavDrawer from "@/app/components/DesktopNavDrawer";
 
 type ToastState = {
   message: string;
@@ -22,12 +23,21 @@ type ToastEventDetail = {
 };
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const { role } = useCurrentUser();
+  const pathname = usePathname();
+  const { role, profile, user } = useCurrentUser();
   const [scanOpen, setScanOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
-  const isAdmin = role === "admin";
+  const isAdmin =
+    profile?.role === "admin" ||
+    role === "admin" ||
+    user?.app_metadata?.role === "admin" ||
+    user?.user_metadata?.role === "admin";
+
+  useEffect(() => {
+    setDesktopMenuOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (!toast) {
@@ -66,7 +76,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <RequireAuth>
       <div className="page">
         <header className="topbar" style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr" }}>
-          <div aria-hidden="true" />
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button
+              type="button"
+              className="btn btn-ghost icon-button desktop-menu-toggle"
+              aria-label="Open menu"
+              onClick={() => setDesktopMenuOpen(true)}
+            >
+              <Menu size={18} strokeWidth={2.2} />
+            </button>
+          </div>
 
           <Link href="/" className="logo" aria-label="NEXT home">
             <span>NEXT</span>
@@ -78,14 +97,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 Admin Mode
               </Link>
             ) : null}
-            <button
-              type="button"
-              className="btn btn-ghost icon-button"
-              aria-label="Refresh current page"
-              onClick={() => router.refresh()}
-            >
-              <RefreshCcw size={18} strokeWidth={2.2} />
-            </button>
             <button
               type="button"
               className="btn btn-ghost icon-button"
@@ -108,6 +119,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </button>
           </div>
         </header>
+
+        <DesktopNavDrawer
+          open={desktopMenuOpen}
+          onClose={() => setDesktopMenuOpen(false)}
+          onOpenScanner={() => {
+            setDesktopMenuOpen(false);
+            setScanOpen(true);
+          }}
+          isAdmin={isAdmin}
+        />
 
         <main className="page-content">{children}</main>
 
