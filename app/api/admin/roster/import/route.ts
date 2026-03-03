@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
 import { parse } from "csv-parse/sync";
 import { requireAdminFromRequest } from "@/lib/supabase/admin-auth";
-import { createServiceRoleClient } from "@/lib/supabase/server";
+import { createServiceRoleClient, normalizeRole } from "@/lib/supabase/server";
 
 type ParsedRosterRow = {
   employee_id: string;
   surname: string;
   first_name: string | null;
   department: string | null;
+  job_title: string | null;
+  campaign: string | null;
+  work_arrangement: string | null;
+  app_role: "admin" | "employee" | "committee";
   status: "active" | "terminated";
 };
 
@@ -23,6 +27,19 @@ const normalizeCell = (value: unknown) => {
   }
 
   return String(value ?? "").trim();
+};
+
+const getFirstValue = (row: Record<string, unknown>, candidates: string[]) => {
+  for (const key of candidates) {
+    if (Object.prototype.hasOwnProperty.call(row, key)) {
+      const value = normalizeCell(row[key]);
+      if (value) {
+        return value;
+      }
+    }
+  }
+
+  return "";
 };
 
 const extractCsvPayload = async (request: Request) => {
@@ -125,8 +142,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
 
-  const requiredHeaders = ["employee_id", "surname", "status"];
-  const missingHeaders = requiredHeaders.filter((header) => !parsed.headers.includes(header));
+  const hasEmployeeId = parsed.headers.includes("employee_id");
+  const hasSurname = parsed.headers.includes("surname") || parsed.headers.includes("last_name");
+  const hasStatus = parsed.headers.includes("status");
+
+  const missingHeaders = [
+    hasEmployeeId ? null : "employee_id",
+    hasSurname ? null : "surname (or last_name)",
+  ]
+    .filter(Boolean)
+    .map(String);
+
   if (missingHeaders.length > 0) {
     return NextResponse.json(
       { error: `Missing required column(s): ${missingHeaders.join(", ")}.` },
@@ -140,14 +166,18 @@ export async function POST(request: Request) {
 
   parsed.rows.forEach((row, index) => {
     const rowNumber = index + 2;
-    const employeeId = normalizeCell(row.employee_id);
-    const surname = normalizeCell(row.surname);
-    const firstName = normalizeCell(row.first_name) || null;
-    const department = normalizeCell(row.department) || null;
-    const status = normalizeCell(row.status).toLowerCase();
+    const employeeId = getFirstValue(row, ["employee_id"]);
+    const surname = getFirstValue(row, ["surname", "last_name"]);
+    const firstName = getFirstValue(row, ["first_name"]) || null;
+    const department = getFirstValue(row, ["department", "vertical"]) || null;
+    const jobTitle = getFirstValue(row, ["job_title", "role", "position"]) || null;
+    const campaign = getFirstValue(row, ["campaign"]) || null;
+    const workArrangement = getFirstValue(row, ["work_setup", "work_arrangement"]) || null;
+    const status = (hasStatus ? getFirstValue(row, ["status"]) : "active").toLowerCase() || "active";
+    const nextRoleRaw = getFirstValue(row, ["next_role"]).toLowerCase();
 
-    if (!employeeId || !surname || !status) {
-      validationErrors.push(`Row ${rowNumber}: employee_id, surname, and status are required.`);
+    if (!employeeId || !surname) {
+      validationErrors.push(`Row ${rowNumber}: employee_id and surname/last_name are required.`);
       return;
     }
 
@@ -161,11 +191,23 @@ export async function POST(request: Request) {
       return;
     }
 
+    const roleToken = nextRoleRaw || "employee";
+    if (!["admin", "employee", "committee", "user"].includes(roleToken)) {
+      validationErrors.push(
+        `Row ${rowNumber}: next_role must be one of admin, employee, committee, user.`
+      );
+      return;
+    }
+
     validRowsByEmployee.set(employeeId, {
       employee_id: employeeId,
       surname,
       first_name: firstName,
       department,
+      job_title: jobTitle,
+      campaign,
+      work_arrangement: workArrangement,
+      app_role: normalizeRole(roleToken),
       status,
     });
   });
@@ -228,6 +270,10 @@ export async function POST(request: Request) {
         last_name: row.surname,
         full_name: [row.first_name, row.surname].filter(Boolean).join(" "),
         department: row.department,
+        job_title: row.job_title,
+        campaign: row.campaign,
+        work_arrangement: row.work_arrangement,
+        role: row.app_role,
       })),
       { onConflict: "employee_id" }
     );
@@ -272,6 +318,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     ok: true,
     ...summary,
+    claim_ready_count: validRows.filter((row) => row.status === "active").length,
     total_valid_rows: validRows.length,
     validation_errors: validationErrors.slice(0, 20),
   });

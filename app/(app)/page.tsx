@@ -1,16 +1,42 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { hotItems, upcomingEvents } from "@/app/components/mockData";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 
 export default function HomePage() {
   const { profile } = useCurrentUser();
+  const [hour, setHour] = useState<number | null>(null);
+
+  useEffect(() => {
+    setHour(new Date().getHours());
+  }, []);
+
+  const greeting = useMemo(() => {
+    if (hour === null) return "Hello";
+    if (hour >= 5 && hour < 12) return "Good morning";
+    if (hour >= 12 && hour < 18) return "Good afternoon";
+    return "Good evening";
+  }, [hour]);
+
+  const greetingName = useMemo(() => {
+    const preferred = profile?.preferred_name?.trim();
+    if (preferred) return preferred;
+
+    const first = profile?.first_name?.trim();
+    if (first) return first;
+
+    const fullNameFirstToken = profile?.full_name?.trim()?.split(/\s+/)[0];
+    if (fullNameFirstToken) return fullNameFirstToken;
+
+    return "there";
+  }, [profile?.first_name, profile?.full_name, profile?.preferred_name]);
 
   return (
     <div>
       <header className="page-header">
         <div>
-          <h1>Home</h1>
+          <h1>{`${greeting}, ${greetingName}!`}</h1>
           <p className="card-muted">Track points, events, and reward highlights.</p>
         </div>
       </header>

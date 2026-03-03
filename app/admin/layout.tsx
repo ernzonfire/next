@@ -51,7 +51,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </button>
           <Logo href="/admin/dashboard" />
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Link href="/dashboard" className="btn btn-outline" aria-label="Switch to user mode">
+            <Link href="/" className="btn btn-outline" aria-label="Switch to user mode">
               User Mode
             </Link>
             <LogoutButton variant="outline" />

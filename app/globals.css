@@ -3,6 +3,7 @@
   --brand-green: #62bb46;
   --brand-blue: #003da6;
   --brand-gray: #4d5858;
+  --app-topbar-height: 72px;
   --bg: #f6f8fb;
   --card: #ffffff;
   --text: #0f1b2d;
@@ -63,8 +64,8 @@ img {
 
 .page-content {
   flex: 1;
-  padding: clamp(16px, 2.5vw, 32px) clamp(14px, 3vw, 40px)
-    calc(108px + env(safe-area-inset-bottom));
+  padding: calc(var(--app-topbar-height) + clamp(14px, 2vw, 22px))
+    clamp(14px, 3vw, 40px) calc(138px + env(safe-area-inset-bottom));
   max-width: 1200px;
   width: 100%;
   margin: 0 auto;
@@ -79,13 +80,16 @@ img {
 }
 
 .topbar {
-  position: sticky;
+  position: fixed;
   top: 0;
-  z-index: 10;
+  left: 0;
+  right: 0;
+  z-index: 45;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  min-height: var(--app-topbar-height);
   padding: clamp(12px, 2vw, 16px) clamp(14px, 3vw, 40px);
   background: rgba(255, 255, 255, 0.86);
   backdrop-filter: blur(12px);
@@ -238,6 +242,18 @@ img {
 .helper {
   font-size: 12px;
   color: var(--muted);
+}
+
+.app-footer {
+  margin-top: 24px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+.profile-page {
+  padding-bottom: calc(78px + env(safe-area-inset-bottom));
 }
 
 .bottom-nav {
@@ -501,7 +517,7 @@ img {
 
 @media (min-width: 900px) {
   .page-content {
-    padding: 32px 40px 40px;
+    padding: calc(var(--app-topbar-height) + 22px) 40px 44px;
   }
 
   .input,

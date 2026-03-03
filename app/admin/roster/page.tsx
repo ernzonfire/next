@@ -9,6 +9,7 @@ type ImportSummary = {
   updated_count: number;
   terminated_count: number;
   error_count: number;
+  claim_ready_count?: number;
   total_valid_rows?: number;
   validation_errors?: string[];
 };
@@ -161,7 +162,7 @@ export default function AdminRosterPage() {
       <form className="card" onSubmit={handleSubmit} style={{ marginTop: 12, marginBottom: 16 }}>
         <div className="card-title">Import CSV</div>
         <div className="card-muted" style={{ marginBottom: 12 }}>
-          Required columns: <code>employee_id</code>, <code>surname</code>, <code>status</code>. Optional: <code>first_name</code>, <code>department</code>.
+          Required columns: <code>employee_id</code>, <code>surname</code> (or <code>last_name</code>). Optional: <code>first_name</code>, <code>vertical</code>/<code>department</code>, <code>campaign</code>, <code>role</code> (job title), <code>work_setup</code>, <code>next_role</code>, <code>status</code>.
         </div>
 
         <div className="form">
@@ -205,6 +206,9 @@ export default function AdminRosterPage() {
               <div className="chip">Updated: {summary.updated_count}</div>
               <div className="chip">Terminated: {summary.terminated_count}</div>
               <div className="chip">Errors: {summary.error_count}</div>
+              {summary.claim_ready_count !== undefined ? (
+                <div className="chip">Claim Ready: {summary.claim_ready_count}</div>
+              ) : null}
             </div>
             {summary.total_valid_rows !== undefined ? (
               <div className="card-muted" style={{ marginTop: 10 }}>

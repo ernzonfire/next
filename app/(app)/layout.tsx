@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Bell, MessageCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Bell, MessageCircle, RefreshCcw } from "lucide-react";
 import RequireAuth from "@/components/auth/RequireAuth";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import BottomTabs from "@/app/components/BottomTabs";
 import ScannerOverlay from "@/app/components/ScannerOverlay";
 import SupportPanel from "@/app/components/SupportPanel";
@@ -20,9 +22,12 @@ type ToastEventDetail = {
 };
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const { role } = useCurrentUser();
   const [scanOpen, setScanOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
+  const isAdmin = role === "admin";
 
   useEffect(() => {
     if (!toast) {
@@ -60,33 +65,48 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <RequireAuth>
       <div className="page">
-        <header className="topbar">
-          <div style={{ width: 40 }} aria-hidden="true" />
+        <header className="topbar" style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr" }}>
+          <div aria-hidden="true" />
 
-          <Link href="/" className="logo" aria-label="NEXT home" style={{ margin: "0 auto" }}>
+          <Link href="/" className="logo" aria-label="NEXT home">
             <span>NEXT</span>
           </Link>
 
-          <button
-            type="button"
-            className="btn btn-ghost icon-button"
-            aria-label="Notifications"
-            style={{ position: "relative" }}
-          >
-            <Bell size={18} strokeWidth={2.2} />
-            <span
-              aria-label="2 unread notifications"
-              style={{
-                position: "absolute",
-                top: 6,
-                right: 6,
-                width: 8,
-                height: 8,
-                borderRadius: 999,
-                background: "var(--brand-green)",
-              }}
-            />
-          </button>
+          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8 }}>
+            {isAdmin ? (
+              <Link href="/admin/dashboard" className="btn btn-outline" aria-label="Switch to admin mode">
+                Admin Mode
+              </Link>
+            ) : null}
+            <button
+              type="button"
+              className="btn btn-ghost icon-button"
+              aria-label="Refresh current page"
+              onClick={() => router.refresh()}
+            >
+              <RefreshCcw size={18} strokeWidth={2.2} />
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost icon-button"
+              aria-label="Notifications"
+              style={{ position: "relative" }}
+            >
+              <Bell size={18} strokeWidth={2.2} />
+              <span
+                aria-label="2 unread notifications"
+                style={{
+                  position: "absolute",
+                  top: 6,
+                  right: 6,
+                  width: 8,
+                  height: 8,
+                  borderRadius: 999,
+                  background: "var(--brand-green)",
+                }}
+              />
+            </button>
+          </div>
         </header>
 
         <main className="page-content">{children}</main>

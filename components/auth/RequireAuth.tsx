@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import LoadingState from "@/components/ui/LoadingState";
@@ -17,18 +17,27 @@ export default function RequireAuth({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, profile, role, loading } = useCurrentUser();
+  const { user, profile, role, loading, refreshProfile } = useCurrentUser();
+  const attemptedProfileRefreshRef = useRef(false);
 
   useEffect(() => {
     if (loading) return;
 
+    if (user && !profile && !attemptedProfileRefreshRef.current) {
+      attemptedProfileRefreshRef.current = true;
+      refreshProfile();
+      return;
+    }
+
     if (!user) {
+      attemptedProfileRefreshRef.current = false;
       router.replace(`/login?next=${encodeURIComponent(pathname ?? "/")}`);
       return;
     }
 
     if (profile?.disabled_at) {
       supabase.auth.signOut();
+      attemptedProfileRefreshRef.current = false;
       router.replace("/login?message=Account%20disabled.%20Please%20contact%20an%20administrator.");
       return;
     }
@@ -39,15 +48,24 @@ export default function RequireAuth({
     }
 
     if (requireClaimed && user && !profile) {
-      supabase.auth.signOut();
-      router.replace("/login?message=Account%20is%20not%20active.");
+      router.replace("/login?message=Unable%20to%20load%20account.%20Please%20try%20again.");
       return;
     }
 
     if (requireAdmin && role !== "admin") {
       router.replace("/");
     }
-  }, [loading, user, profile, role, requireAdmin, requireClaimed, pathname, router]);
+  }, [
+    loading,
+    user,
+    profile,
+    role,
+    refreshProfile,
+    requireAdmin,
+    requireClaimed,
+    pathname,
+    router,
+  ]);
 
   if (loading) {
     return <LoadingState />;

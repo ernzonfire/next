@@ -34,6 +34,21 @@ type CurrentUserState = {
   refreshProfile: () => Promise<void>;
 };
 
+const withTimeout = async <T,>(promise: Promise<T>, ms: number): Promise<T> => {
+  return await new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error("Request timed out")), ms);
+    promise
+      .then((value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        window.clearTimeout(timer);
+        reject(error);
+      });
+  });
+};
+
 export function useCurrentUser(): CurrentUserState {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -46,22 +61,37 @@ export function useCurrentUser(): CurrentUserState {
       return;
     }
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .select(
-        "id, auth_user_id, full_name, preferred_name, department, employee_id, first_name, last_name, job_title, campaign, site, work_arrangement, dob_text, role, points_balance, claimed, claimed_at, disabled_at"
-      )
-      .or(`id.eq.${userId},auth_user_id.eq.${userId}`)
-      .limit(1)
-      .maybeSingle();
+    try {
+      const query = supabase
+        .from("profiles")
+        .select(
+          "id, auth_user_id, full_name, preferred_name, department, employee_id, first_name, last_name, job_title, campaign, site, work_arrangement, dob_text, role, points_balance, claimed, claimed_at, disabled_at"
+        )
+        .or(`id.eq.${userId},auth_user_id.eq.${userId}`)
+        .limit(1)
+        .maybeSingle();
 
-    if (error) {
-      console.error("Failed to load profile", error.message);
+      const response = (await withTimeout(
+        Promise.resolve(query),
+        10000
+      )) as {
+        data: Profile | null;
+        error: { message: string } | null;
+      };
+
+      const { data, error } = response;
+
+      if (error) {
+        console.error("Failed to load profile", error.message);
+        setProfile(null);
+        return;
+      }
+
+      setProfile(data);
+    } catch (error) {
+      console.error("Failed to load profile", error);
       setProfile(null);
-      return;
     }
-
-    setProfile(data);
   }, []);
 
   const refreshProfile = useCallback(async () => {
@@ -72,13 +102,23 @@ export function useCurrentUser(): CurrentUserState {
     let isMounted = true;
 
     const loadSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!isMounted) return;
+      try {
+        const { data } = await withTimeout(supabase.auth.getSession(), 8000);
+        if (!isMounted) return;
 
-      setSession(data.session ?? null);
-      setUser(data.session?.user ?? null);
-      await fetchProfile(data.session?.user?.id ?? null);
-      setLoading(false);
+        setSession(data.session ?? null);
+        setUser(data.session?.user ?? null);
+        await fetchProfile(data.session?.user?.id ?? null);
+      } catch (error) {
+        if (!isMounted) return;
+        console.error("Failed to load session", error);
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+      } finally {
+        if (!isMounted) return;
+        setLoading(false);
+      }
     };
 
     loadSession();
@@ -88,6 +128,7 @@ export function useCurrentUser(): CurrentUserState {
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
       await fetchProfile(nextSession?.user?.id ?? null);
+      setLoading(false);
     });
 
     return () => {
@@ -103,7 +144,9 @@ export function useCurrentUser(): CurrentUserState {
       : roleFromJwt === "employee" || roleFromJwt === "user"
       ? roleFromJwt
       : null;
-  const role = (normalizedRole as CurrentUserState["role"] | null) ?? profile?.role ?? null;
+  const role = (profile?.role as CurrentUserState["role"] | null) ??
+    (normalizedRole as CurrentUserState["role"] | null) ??
+    null;
 
   return {
     session,

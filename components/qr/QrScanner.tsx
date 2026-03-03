@@ -5,6 +5,8 @@ import { BrowserMultiFormatReader } from "@zxing/browser";
 
 export default function QrScanner({
   onResult,
+  onError,
+  onReady,
   active = true,
   height = 320,
   showTitle = true,
@@ -12,6 +14,8 @@ export default function QrScanner({
   className = "",
 }: {
   onResult: (value: string) => void;
+  onError?: (message: string) => void;
+  onReady?: () => void;
   active?: boolean;
   height?: number | string;
   showTitle?: boolean;
@@ -27,9 +31,22 @@ export default function QrScanner({
 
     const codeReader = new BrowserMultiFormatReader();
     let controls: { stop: () => void } | null = null;
-    let stopped = false;
+
+    const handleError = (message: string) => {
+      const normalized = message.trim() || "Unable to access camera";
+      setError(normalized);
+      onError?.(normalized);
+    };
 
     const start = async () => {
+      const hostname = window.location.hostname;
+      const isLocalhost =
+        hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+      if (!window.isSecureContext && !isLocalhost) {
+        handleError("Camera requires HTTPS (or localhost for local testing).");
+        return;
+      }
+
       try {
         controls = await codeReader.decodeFromVideoDevice(
           undefined,
@@ -42,22 +59,23 @@ export default function QrScanner({
               const name = (err as { name?: string }).name ?? "";
               const message = err instanceof Error ? err.message : String(err);
               if (name !== "NotFoundException" && !message.includes("NotFoundException")) {
-                setError(message || "Camera error");
+                handleError(message || "Camera error");
               }
             }
           }
         );
         setReady(true);
+        setError(null);
+        onReady?.();
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unable to access camera";
-        setError(message);
+        handleError(message);
       }
     };
 
     start();
 
     return () => {
-      stopped = true;
       if (controls) {
         controls.stop();
       }
@@ -65,11 +83,9 @@ export default function QrScanner({
       if (typeof maybeReader.reset === "function") {
         maybeReader.reset();
       }
-      if (stopped) {
-        setReady(false);
-      }
+      setReady(false);
     };
-  }, [active, onResult]);
+  }, [active, onError, onReady, onResult]);
 
   return (
     <div className={`card ${className}`} style={{ display: "grid", gap: 12 }}>
