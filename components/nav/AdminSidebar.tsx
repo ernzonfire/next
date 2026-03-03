@@ -9,13 +9,11 @@ import {
   Megaphone,
   MessageCircle,
   Receipt,
-  Upload,
   Users,
 } from "lucide-react";
 
 const links = [
   { href: "/admin/dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/admin/roster", label: "Roster Upload", icon: Upload },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/events", label: "Events", icon: CalendarDays },
   { href: "/admin/announcements", label: "Announcements", icon: Megaphone },

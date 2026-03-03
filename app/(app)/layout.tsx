@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, Menu, MessageCircle } from "lucide-react";
 import RequireAuth from "@/components/auth/RequireAuth";
+import Logo from "@/components/brand/Logo";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import BottomTabs from "@/app/components/BottomTabs";
 import ScannerOverlay from "@/app/components/ScannerOverlay";
@@ -87,9 +88,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </button>
           </div>
 
-          <Link href="/" className="logo" aria-label="NEXT home">
-            <span>NEXT</span>
-          </Link>
+          <Logo href="/" />
 
           <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8 }}>
             {isAdmin ? (
