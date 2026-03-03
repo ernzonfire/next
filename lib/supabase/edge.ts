@@ -3,10 +3,10 @@ import { supabase } from "@/lib/supabase/client";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
-const withTimeout = async <T>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
+const withTimeout = async <T>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
   return new Promise((resolve, reject) => {
     const timer = window.setTimeout(() => {
-      reject(new Error(`${label} timed out`));
+      reject(new Error(message));
     }, ms);
     promise
       .then((value) => {
@@ -21,16 +21,21 @@ const withTimeout = async <T>(promise: Promise<T>, ms: number, label: string): P
 };
 
 const getAccessToken = async () => {
+  let existingToken: string | null = null;
+
   try {
-    const sessionResponse = await withTimeout(supabase.auth.getSession(), 5000, "Session check");
+    const sessionResponse = await supabase.auth.getSession();
     const session = sessionResponse.data.session;
     const now = Math.floor(Date.now() / 1000);
     const expiresAt = session?.expires_at ?? 0;
-    const shouldRefresh = !session?.access_token || (expiresAt > 0 && expiresAt - now < 60);
+    const hasValidToken =
+      !!session?.access_token && (expiresAt === 0 || expiresAt - now > 30);
 
-    if (session?.access_token && !shouldRefresh) {
-      return sessionResponse.data.session.access_token;
+    if (hasValidToken) {
+      return session.access_token;
     }
+
+    existingToken = session?.access_token ?? null;
   } catch (_err) {
     // ignore and try refresh
   }
@@ -38,8 +43,8 @@ const getAccessToken = async () => {
   try {
     const refreshed = await withTimeout(
       supabase.auth.refreshSession(),
-      5000,
-      "Session refresh"
+      10000,
+      "Session refresh timed out. Please reload and try again."
     );
     if (refreshed.data.session?.access_token) {
       return refreshed.data.session.access_token;
@@ -48,8 +53,7 @@ const getAccessToken = async () => {
     // ignore and fall back
   }
 
-  const { data: sessionData } = await supabase.auth.getSession();
-  return sessionData.session?.access_token ?? null;
+  return existingToken;
 };
 
 export const invokeEdge = async <T>(
@@ -91,10 +95,18 @@ export const invokeEdge = async <T>(
 
   // If token is stale (e.g., keys rotated), refresh once and retry before forcing logout.
   if (response.status === 401) {
-    const refreshed = await withTimeout(supabase.auth.refreshSession(), 5000, "Session refresh");
-    const retryToken = refreshed.data.session?.access_token ?? null;
-    if (retryToken) {
-      response = await runRequest(retryToken);
+    try {
+      const refreshed = await withTimeout(
+        supabase.auth.refreshSession(),
+        10000,
+        "Session refresh timed out. Please reload and try again."
+      );
+      const retryToken = refreshed.data.session?.access_token ?? null;
+      if (retryToken) {
+        response = await runRequest(retryToken);
+      }
+    } catch (_err) {
+      // Keep original 401 response handling below.
     }
   }
 
@@ -109,13 +121,15 @@ export const invokeEdge = async <T>(
   }
 
   if (!response.ok) {
-    if (response.status === 401) {
-      await supabase.auth.signOut();
-    }
     const message =
       typeof payload === "object" && payload !== null && "error" in payload
         ? String((payload as { error?: string }).error ?? "")
         : "Edge Function returned an error.";
+
+    if (response.status === 401) {
+      throw new Error(message || "Session expired. Please reload and sign in again.");
+    }
+
     throw new Error(message || "Edge Function returned an error.");
   }
 

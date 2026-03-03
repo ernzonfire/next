@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { invokeEdge } from "@/lib/supabase/edge";
 import { formatDateTime } from "@/lib/utils/format";
+import { compressImageForUpload } from "@/lib/utils/image";
 
 type EventRow = {
   id: string;
@@ -30,6 +31,7 @@ export default function AdminEventsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [compressionNote, setCompressionNote] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingCodeId, setEditingCodeId] = useState<string | null>(null);
@@ -41,6 +43,14 @@ export default function AdminEventsPage() {
       .replace(/\s+/g, "");
 
   const isValidEventCode = (value: string) => /^[A-Z0-9_-]{4,24}$/.test(value);
+
+  useEffect(() => {
+    return () => {
+      if (imagePreview) {
+        URL.revokeObjectURL(imagePreview);
+      }
+    };
+  }, [imagePreview]);
 
   useEffect(() => {
     load();
@@ -233,7 +243,27 @@ export default function AdminEventsPage() {
 
     try {
       if (supportsEventImages && imageFile) {
-        imageUrl = await uploadImage(imageFile);
+        const compressed = await compressImageForUpload(imageFile, {
+          maxDimension: 1600,
+          quality: 0.82,
+        });
+
+        if (compressed.size < imageFile.size) {
+          const beforeKb = Math.round(imageFile.size / 1024);
+          const afterKb = Math.round(compressed.size / 1024);
+          setCompressionNote(`Image compressed: ${beforeKb}KB → ${afterKb}KB`);
+        } else {
+          setCompressionNote(null);
+        }
+
+        try {
+          imageUrl = await uploadImage(compressed);
+        } catch (uploadError) {
+          const uploadMessage =
+            uploadError instanceof Error ? uploadError.message : "Unable to upload image.";
+          setError(`Image upload failed: ${uploadMessage}. Event will be created without image.`);
+          imageUrl = null;
+        }
       }
       const payload: Record<string, unknown> = {
         title: title.trim(),
@@ -264,6 +294,7 @@ export default function AdminEventsPage() {
     setPoints(10);
     setEventCode("");
     setImageFile(null);
+    setCompressionNote(null);
     setImagePreview(null);
     setShowForm(false);
     await load();
@@ -347,7 +378,11 @@ export default function AdminEventsPage() {
                   accept="image/*"
                   onChange={(event) => {
                     const file = event.target.files?.[0] ?? null;
+                    if (imagePreview) {
+                      URL.revokeObjectURL(imagePreview);
+                    }
                     setImageFile(file);
+                    setCompressionNote(null);
                     setImagePreview(file ? URL.createObjectURL(file) : null);
                   }}
                 />
@@ -358,6 +393,11 @@ export default function AdminEventsPage() {
                       alt="Event preview"
                       style={{ width: "100%", borderRadius: 12, border: "1px solid var(--border)" }}
                     />
+                    {compressionNote ? (
+                      <div className="card-muted" style={{ marginTop: 8 }}>
+                        {compressionNote}
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
               </label>

@@ -13,6 +13,20 @@ export type AdminAuthResult =
       error: string;
     };
 
+const resolveRoleToken = (value: unknown): string | null => {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return normalized || null;
+};
+
+const isUserAdmin = (user: User, profileRole: string | null): boolean => {
+  const jwtRole = resolveRoleToken(user.app_metadata?.role ?? user.user_metadata?.role);
+  return profileRole === "admin" || jwtRole === "admin";
+};
+
 export const requireAdminFromRequest = async (request: Request): Promise<AdminAuthResult> => {
   const token = getBearerToken(request);
   if (!token) {
@@ -34,21 +48,24 @@ export const requireAdminFromRequest = async (request: Request): Promise<AdminAu
     .limit(1)
     .maybeSingle();
 
-  if (profileError || !profile) {
+  const profileRole = resolveRoleToken(profile?.role);
+  const adminByJwt = isUserAdmin(userData.user, null);
+
+  if (profileError && !adminByJwt) {
     return { ok: false, status: 403, error: "Profile not found." };
   }
 
-  if (profile.disabled_at) {
+  if (profile?.disabled_at) {
     return { ok: false, status: 403, error: "Account is disabled." };
   }
 
-  if (profile.role !== "admin") {
+  if (!isUserAdmin(userData.user, profileRole)) {
     return { ok: false, status: 403, error: "Admin access required." };
   }
 
   return {
     ok: true,
     user: userData.user,
-    profileId: profile.id,
+    profileId: profile?.id ?? userId,
   };
 };
