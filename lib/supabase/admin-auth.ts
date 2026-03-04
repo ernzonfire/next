@@ -23,8 +23,13 @@ const resolveRoleToken = (value: unknown): string | null => {
 };
 
 const isUserAdmin = (user: User, profileRole: string | null): boolean => {
-  const jwtRole = resolveRoleToken(user.app_metadata?.role ?? user.user_metadata?.role);
-  return profileRole === "admin" || jwtRole === "admin";
+  const appMetadataRole = resolveRoleToken(user.app_metadata?.role);
+  const userMetadataRole = resolveRoleToken(user.user_metadata?.role);
+  return (
+    profileRole === "admin" ||
+    appMetadataRole === "admin" ||
+    userMetadataRole === "admin"
+  );
 };
 
 export const requireAdminFromRequest = async (request: Request): Promise<AdminAuthResult> => {

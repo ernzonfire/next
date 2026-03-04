@@ -34,19 +34,23 @@ const normalizeEventCode = (value: string | null | undefined) =>
 
 const isValidEventCode = (value: string) => /^[A-Z0-9_-]{4,24}$/.test(value);
 
-const resolveRole = async (userId: string, jwtRole?: string | null) => {
-  if (jwtRole === "admin") {
-    return jwtRole;
+const resolveRoleToken = (value: unknown): string | null => {
+  if (typeof value !== "string") {
+    return null;
   }
+  const normalized = value.trim().toLowerCase();
+  return normalized || null;
+};
 
+const resolveActor = async (userId: string) => {
   const { data } = await supabaseAdmin
     .from("profiles")
-    .select("role")
+    .select("id, role")
     .or(`id.eq.${userId},auth_user_id.eq.${userId}`)
     .limit(1)
     .maybeSingle();
 
-  return data?.role ?? null;
+  return data ?? null;
 };
 
 serve(async (req) => {
@@ -71,9 +75,16 @@ serve(async (req) => {
     return json(401, { error: "invalid token" }, origin);
   }
 
-  const role = await resolveRole(userData.user.id, userData.user.app_metadata?.role);
-  if (role !== "admin") {
+  const actorProfile = await resolveActor(userData.user.id);
+  const appMetadataRole = resolveRoleToken(userData.user.app_metadata?.role);
+  const userMetadataRole = resolveRoleToken(userData.user.user_metadata?.role);
+  const resolvedRole = resolveRoleToken(actorProfile?.role) ?? appMetadataRole ?? userMetadataRole;
+
+  if (resolvedRole !== "admin") {
     return json(403, { error: "not authorized" }, origin);
+  }
+  if (!actorProfile?.id) {
+    return json(403, { error: "admin profile not found" }, origin);
   }
 
   let body: {
@@ -132,7 +143,7 @@ serve(async (req) => {
       description,
       event_date: eventDate,
       points,
-      created_by: userData.user.id,
+      created_by: actorProfile.id,
       event_code: eventCode,
     };
     if (imageUrl) {
@@ -156,7 +167,7 @@ serve(async (req) => {
         description,
         event_date: eventDate,
         points,
-        created_by: userData.user.id,
+        created_by: actorProfile.id,
         event_code: eventCode,
       };
       const retry = await supabaseAdmin

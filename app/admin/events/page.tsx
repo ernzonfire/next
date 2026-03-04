@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
-import { invokeEdge } from "@/lib/supabase/edge";
 import { formatDateTime } from "@/lib/utils/format";
 import { compressImageForUpload } from "@/lib/utils/image";
 
@@ -55,6 +54,18 @@ export default function AdminEventsPage() {
   useEffect(() => {
     load();
   }, []);
+
+  const getAccessToken = async () => {
+    const { data, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      throw new Error(sessionError.message);
+    }
+    const token = data.session?.access_token;
+    if (!token) {
+      throw new Error("Session expired. Please sign in again.");
+    }
+    return token;
+  };
 
   const load = async () => {
     setLoading(true);
@@ -278,7 +289,20 @@ export default function AdminEventsPage() {
         payload.event_code = normalizedCode;
       }
 
-      await invokeEdge<{ event_id: string }>("create-event", payload);
+      const token = await getAccessToken();
+      const response = await fetch("/api/admin/events/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = (await response.json()) as { error?: string; event_id?: string; event_code?: string };
+      if (!response.ok) {
+        throw new Error(result.error ?? "Unable to create event.");
+      }
     } catch (invokeError) {
       const message = invokeError instanceof Error ? invokeError.message : "Unable to create event.";
       setError(message);

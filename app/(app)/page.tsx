@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { hotItems } from "@/app/components/mockData";
 import { supabase } from "@/lib/supabase/client";
 import { formatDateTime } from "@/lib/utils/format";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
@@ -14,14 +13,69 @@ type UpcomingEvent = {
   points: number;
 };
 
+type HotReward = {
+  id: string;
+  title: string;
+  description: string | null;
+  points_cost: number;
+  stock: number;
+  image_url: string | null;
+};
+
 export default function HomePage() {
   const { profile } = useCurrentUser();
   const [hour, setHour] = useState<number | null>(null);
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
+  const [hotRewards, setHotRewards] = useState<HotReward[]>([]);
+  const [rewardsLoading, setRewardsLoading] = useState(true);
 
   useEffect(() => {
     setHour(new Date().getHours());
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadRewards = async () => {
+      setRewardsLoading(true);
+      const withImage = await supabase
+        .from("rewards")
+        .select("id, title, description, points_cost, stock, image_url")
+        .eq("is_active", true)
+        .order("points_cost", { ascending: true })
+        .limit(8);
+
+      if (!withImage.error) {
+        if (!cancelled) {
+          setHotRewards((withImage.data ?? []) as HotReward[]);
+          setRewardsLoading(false);
+        }
+        return;
+      }
+
+      const fallback = await supabase
+        .from("rewards")
+        .select("id, title, description, points_cost, stock")
+        .eq("is_active", true)
+        .order("points_cost", { ascending: true })
+        .limit(8);
+
+      if (!cancelled) {
+        setHotRewards(
+          ((fallback.data ?? []) as Omit<HotReward, "image_url">[]).map((row) => ({
+            ...row,
+            image_url: null,
+          }))
+        );
+        setRewardsLoading(false);
+      }
+    };
+
+    loadRewards();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -141,25 +195,46 @@ export default function HomePage() {
             scrollSnapType: "x mandatory",
           }}
         >
-          {hotItems.map((item) => (
-            <article
-              key={item.id}
-              className="card"
-              style={{
-                minWidth: 220,
-                maxWidth: 250,
-                flex: "0 0 auto",
-                scrollSnapAlign: "start",
-              }}
-            >
-              <div className="card-title">{item.name}</div>
-              <p className="card-muted">{item.details}</p>
-              <div style={{ marginTop: 12, display: "flex", justifyContent: "space-between" }}>
-                <span className="chip">{item.category}</span>
-                <strong style={{ color: "var(--brand-navy)" }}>{item.points} pts</strong>
-              </div>
-            </article>
-          ))}
+          {rewardsLoading ? (
+            <div className="card-muted">Loading hot items...</div>
+          ) : hotRewards.length === 0 ? (
+            <div className="card-muted">No rewards available yet.</div>
+          ) : (
+            hotRewards.map((item) => (
+              <article
+                key={item.id}
+                className="card"
+                style={{
+                  minWidth: 220,
+                  maxWidth: 260,
+                  flex: "0 0 auto",
+                  scrollSnapAlign: "start",
+                }}
+              >
+                {item.image_url ? (
+                  <div style={{ margin: "-6px -6px 10px" }}>
+                    <img
+                      src={item.image_url}
+                      alt={item.title}
+                      style={{
+                        width: "100%",
+                        height: 120,
+                        objectFit: "cover",
+                        borderRadius: 12,
+                        border: "1px solid var(--border)",
+                      }}
+                    />
+                  </div>
+                ) : null}
+                <div className="card-title">{item.title}</div>
+                <p className="card-muted">{item.description?.trim() || "Redeem in the Shop tab."}</p>
+                <div style={{ marginTop: 12, display: "flex", justifyContent: "space-between" }}>
+                  <span className="chip">Stock: {item.stock}</span>
+                  <strong style={{ color: "var(--brand-navy)" }}>{item.points_cost} pts</strong>
+                </div>
+              </article>
+            ))
+          )}
         </div>
       </section>
     </div>
