@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
-import { invokeEdge } from "@/lib/supabase/edge";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { formatDateTime } from "@/lib/utils/format";
 
@@ -82,6 +81,18 @@ export default function EventsPage() {
     load();
   }, []);
 
+  const getAccessToken = async () => {
+    const { data, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      throw new Error(sessionError.message);
+    }
+    const token = data.session?.access_token;
+    if (!token) {
+      throw new Error("Session expired. Please sign in again.");
+    }
+    return token;
+  };
+
   const uploadImage = async (file: File) => {
     const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
     const path = `events/${Date.now()}-${crypto.randomUUID()}.${ext}`;
@@ -124,7 +135,20 @@ export default function EventsPage() {
       if (supportsEventImages && imageUrl) {
         payload.image_url = imageUrl;
       }
-      await invokeEdge<{ event_id: string }>("create-event", payload);
+      const token = await getAccessToken();
+      const response = await fetch("/api/admin/events/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = (await response.json()) as { error?: string; event_id?: string; event_code?: string };
+      if (!response.ok) {
+        throw new Error(result.error ?? "Unable to create event.");
+      }
       setTitle("");
       setDescription("");
       setEventDate("");
